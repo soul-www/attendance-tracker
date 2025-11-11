@@ -1,0 +1,539 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Smart Attendance Tracker — Prototype</title>
+<style>
+  :root{
+    --blue:#2F80ED;
+    --light-blue:#56CCF2;
+    --green:#28a745;
+    --red:#dc3545;
+    --bg:#F8F9FA;
+    --card:#FFFFFF;
+    --text:#222;
+    --muted:#667085;
+    --radius:14px;
+    font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,"Helvetica Neue",Arial;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%;margin:0;background:var(--bg);color:var(--text);-webkit-font-smoothing:antialiased}
+  .container{max-width:420px;margin:18px auto;padding:16px}
+  .card{background:var(--card);border-radius:16px;padding:16px;box-shadow:0 8px 28px rgba(17,24,39,0.06)}
+  header.app{display:flex;align-items:center;gap:12px;margin-bottom:14px}
+  .logo{font-weight:700;color:var(--blue);font-size:18px}
+  .tag{font-size:13px;color:var(--muted)}
+  /* Controls */
+  .btn{cursor:pointer;border:0;padding:10px 12px;border-radius:12px;font-weight:700}
+  .btn-primary{background:var(--blue);color:#fff}
+  .btn-ghost{background:transparent;border:1px solid #e6e7ea;color:var(--text)}
+  .btn-small{padding:8px 10px;border-radius:10px;font-weight:600}
+  input,select{width:100%;padding:12px;border-radius:10px;border:1px solid #eef2f6;margin-top:8px;font-size:15px}
+  .muted{color:var(--muted);font-size:13px}
+  .role-row{display:flex;gap:8px;margin-top:12px}
+  .role-row .btn{flex:1}
+  /* Nav bottom */
+  .bottom-nav{position:fixed;left:50%;transform:translateX(-50%);bottom:18px;display:flex;gap:10px;background:rgba(255,255,255,0.98);padding:10px;border-radius:22px;box-shadow:0 10px 30px rgba(2,6,23,0.08)}
+  .nav-item{padding:8px 14px;border-radius:12px;font-weight:700;color:#7a7a7a}
+  .nav-item.active{background:linear-gradient(90deg,var(--light-blue),var(--blue));color:#fff}
+  /* Dashboard */
+  .hero{display:flex;gap:12px;align-items:center;justify-content:space-between}
+  .summary{flex:1}
+  .stat-circle{width:76px;height:76px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:800;color:#fff}
+  .actions{display:flex;gap:10px;margin-top:12px}
+  .quick{flex:1;padding:12px;border-radius:12px;font-weight:700}
+  .scan-btn{background:linear-gradient(90deg,var(--blue),var(--light-blue));color:#fff}
+  .gen-btn{background:#fff;border:1px solid #eef2f6;color:var(--text)}
+  /* Scanner */
+  .scanner{height:320px;border-radius:12px;border:2px dashed #e6e7ea;display:flex;align-items:center;justify-content:center;flex-direction:column;background:linear-gradient(180deg,rgba(47,128,237,0.03),transparent)}
+  .qr-placeholder{width:220px;height:220px;border-radius:8px;background:#fff;display:flex;align-items:center;justify-content:center;box-shadow:0 10px 24px rgba(2,6,23,0.06)}
+  .notice{font-size:13px;color:var(--muted);margin-top:6px}
+  /* Records table */
+  table{width:100%;border-collapse:collapse;margin-top:12px}
+  th,td{padding:10px;text-align:left;border-bottom:1px solid #f1f4f8;font-size:14px}
+  .pill{padding:6px 8px;border-radius:999px;color:#fff;font-weight:700;font-size:12px}
+  .present{background:var(--green)}
+  .absent{background:var(--red)}
+  /* Profile */
+  .row{display:flex;gap:12px;align-items:center}
+  .avatar{width:64px;height:64px;border-radius:999px;background:linear-gradient(180deg,var(--light-blue),var(--blue));display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700}
+  .muted-small{color:var(--muted);font-size:13px}
+  /* small utilities */
+  .hidden{display:none!important}
+  .mt12{margin-top:12px}
+  footer.note{text-align:center;color:var(--muted);font-size:13px;margin-top:14px}
+  /* responsive */
+  @media(min-width:900px){.container{margin-top:26px}}
+</style>
+</head>
+<body>
+<div class="container">
+
+  <header class="app">
+    <div>
+      <div class="logo">Smart Attendance Tracker</div>
+      <div class="tag">QR-based attendance • for students & teachers</div>
+    </div>
+  </header>
+
+  <!-- LOGIN -->
+  <section id="screen-login" class="card">
+    <div class="muted">Sign in</div>
+    <h2 style="margin:8px 0 0 0">Welcome back</h2>
+    <div class="muted" style="margin-top:6px">Choose role, enter email and password</div>
+
+    <div class="role-row">
+      <button id="role-student" class="btn btn-primary">Student</button>
+      <button id="role-teacher" class="btn btn-ghost">Teacher</button>
+    </div>
+
+    <input id="email" placeholder="Email (use any name for demo)" />
+    <input id="password" type="password" placeholder="Password" />
+    <div style="display:flex;gap:8px;margin-top:10px">
+      <button id="login-btn" class="btn btn-primary" style="flex:1">Login</button>
+      <button id="guest-btn" class="btn btn-ghost" style="flex:1">Guest</button>
+    </div>
+
+    <div class="muted mt12">Tip: Guest lets you try both Student & Teacher actions.</div>
+  </section>
+
+  <!-- DASHBOARD -->
+  <section id="screen-dashboard" class="card hidden">
+    <div class="hero">
+      <div class="summary">
+        <div class="muted">Welcome, <span id="display-name">User</span></div>
+        <h3 style="margin:6px 0 0 0">Today's Attendance</h3>
+        <div style="display:flex;align-items:center;gap:12px;margin-top:10px">
+          <div id="att-percent" class="stat-circle" style="background:linear-gradient(180deg,var(--light-blue),var(--blue));color:#fff">0%</div>
+          <div>
+            <div id="today-date" class="muted-small">Date</div>
+            <div id="today-status" style="font-weight:700">No record yet</div>
+          </div>
+        </div>
+
+        <div class="actions">
+          <button id="btn-scan" class="quick scan-btn">Scan QR</button>
+          <button id="btn-generate" class="quick gen-btn">Generate QR</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="mt12">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <div style="font-weight:800">Recent Records</div>
+        <div class="muted-small">Latest entries</div>
+      </div>
+      <table id="recent-table" class="mt12">
+        <thead><tr><th>Date</th><th>Subject</th><th>Status</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- SCAN -->
+  <section id="screen-scan" class="card hidden">
+    <div style="font-weight:800">QR Scanner</div>
+    <div class="muted">Align the teacher's QR inside the frame and press Scan</div>
+
+    <div class="scanner mt12">
+      <div class="qr-placeholder">Camera view (simulated)</div>
+      <div class="notice">Align code till the simulated scan button activates</div>
+      <div style="display:flex;gap:10px;margin-top:10px">
+        <button id="simulate-scan" class="btn btn-primary btn-small">Simulate Scan</button>
+        <button id="scan-back" class="btn btn-ghost btn-small">Back</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- CONFIRMATION -->
+  <section id="screen-confirm" class="card hidden">
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <div style="font-weight:800">Attendance Recorded</div>
+      <div style="background:var(--green);color:#fff;padding:8px 10px;border-radius:999px;font-weight:800">Present</div>
+    </div>
+    <div class="muted mt12">You have been marked present for <span id="confirm-subject">Subject</span></div>
+    <div style="display:flex;gap:10px;margin-top:14px">
+      <button id="confirm-done" class="btn btn-primary">Done</button>
+      <button id="confirm-records" class="btn btn-ghost">View Records</button>
+    </div>
+  </section>
+
+  <!-- GENERATE QR (teacher) -->
+  <section id="screen-generate" class="card hidden">
+    <div style="font-weight:800">Generate QR Code</div>
+    <div class="muted">Select class and create a time-limited QR</div>
+    <select id="select-class" class="mt12">
+      <option>Math 101</option>
+      <option>CS 201</option>
+      <option>History 105</option>
+      <option>Physics 110</option>
+    </select>
+
+    <div style="display:flex;gap:10px;margin-top:12px">
+      <button id="generate-btn" class="btn btn-primary">Generate QR</button>
+      <button id="generate-back" class="btn btn-ghost">Back</button>
+    </div>
+
+    <div id="qr-area" class="mt12 hidden" style="text-align:center">
+      <canvas id="qr-canvas" width="200" height="200" style="background:#fff;border-radius:8px;box-shadow:0 8px 20px rgba(2,6,23,0.06)"></canvas>
+      <div class="muted-small mt12">Valid for <span id="qr-timer">--:--</span></div>
+      <div style="display:flex;gap:10px;justify-content:center;margin-top:10px">
+        <button id="download-qr" class="btn btn-ghost">Download</button>
+        <button id="share-qr" class="btn btn-ghost">Share</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- RECORDS -->
+  <section id="screen-records" class="card hidden">
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <div style="font-weight:800">Attendance Records</div>
+      <div class="muted-small">Filter:
+        <select id="filter-range" style="margin-left:8px">
+          <option value="all">All</option>
+          <option value="30">Last 30 days</option>
+        </select>
+      </div>
+    </div>
+
+    <table id="records-table" class="mt12">
+      <thead><tr><th>Date</th><th>Subject</th><th>Status</th></tr></thead>
+      <tbody></tbody>
+    </table>
+
+    <div class="mt12 card" style="padding:12px">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <div style="font-weight:700">Statistics</div>
+        <div class="muted-small">Attendance % last 30 entries</div>
+      </div>
+      <canvas id="stats-canvas" width="320" height="120" class="mt12" style="width:100%;height:120px"></canvas>
+    </div>
+  </section>
+
+  <!-- PROFILE -->
+  <section id="screen-profile" class="card hidden">
+    <div style="display:flex;gap:12px;align-items:center">
+      <div class="avatar" id="avatar-initials">U</div>
+      <div>
+        <div id="profile-name" style="font-weight:800">User</div>
+        <div id="profile-role" class="muted-small">Role</div>
+      </div>
+    </div>
+
+    <div class="mt12">
+      <input id="edit-name" placeholder="Full name" />
+      <select id="edit-role" class="mt12">
+        <option value="student">Student</option>
+        <option value="teacher">Teacher</option>
+      </select>
+      <div style="display:flex;gap:10px;margin-top:12px">
+        <button id="save-profile" class="btn btn-primary">Save</button>
+        <button id="logout" class="btn btn-ghost">Logout</button>
+      </div>
+    </div>
+  </section>
+
+  <div class="mt12"></div>
+
+  <footer class="note">High-fidelity prototype • interactive demo • data stored locally</footer>
+</div>
+
+<!-- bottom navigation -->
+<nav class="bottom-nav" id="bottom-nav">
+  <div class="nav-item active" data-screen="screen-dashboard">Dashboard</div>
+  <div class="nav-item" data-screen="screen-scan">Scan</div>
+  <div class="nav-item" data-screen="screen-records">Records</div>
+  <div class="nav-item" data-screen="screen-profile">Profile</div>
+</nav>
+
+<script>
+/* Prototype logic: local state, screens, interactions */
+(function(){
+  const screens = Array.from(document.querySelectorAll('section'));
+  const navItems = document.querySelectorAll('.nav-item');
+  const state = {
+    role: 'student',
+    name: localStorage.getItem('sat_name') || 'Guest User',
+    records: JSON.parse(localStorage.getItem('sat_records') || '[]'),
+    currentQR: null,
+    qrExpires: null
+  };
+
+  // helpers
+  const $ = id => document.getElementById(id);
+  function show(screenId){
+    screens.forEach(s => s.classList.toggle('hidden', s.id !== screenId));
+    navItems.forEach(n => n.classList.toggle('active', n.dataset.screen === screenId));
+    refreshUI();
+  }
+
+  function refreshUI(){
+    // header / profile
+    $('display-name').textContent = state.name;
+    $('profile-name').textContent = state.name;
+    $('profile-role').textContent = state.role[0].toUpperCase() + state.role.slice(1);
+    $('avatar-initials').textContent = state.name.split(' ').map(s=>s[0]||'').slice(0,2).join('').toUpperCase();
+
+    // dashboard stats
+    const today = new Date().toLocaleDateString();
+    $('today-date').textContent = today;
+    const todayRec = state.records.find(r => r.date === today);
+    $('today-status').textContent = todayRec ? todayRec.status : 'No record yet';
+
+    const percent = computePercent();
+    $('att-percent').textContent = Math.round(percent) + '%';
+
+    renderRecent();
+    renderRecords();
+    drawStats();
+  }
+
+  function computePercent(){
+    if(!state.records.length) return 0;
+    const present = state.records.filter(r => r.status === 'Present').length;
+    return (present / state.records.length) * 100;
+  }
+
+  function renderRecent(){
+    const tbody = document.querySelector('#recent-table tbody');
+    tbody.innerHTML = '';
+    state.records.slice(-4).reverse().forEach(r => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td>${r.date}</td><td>${r.subject}</td><td><span class="pill ${r.status==='Present'?'present':'absent'}">${r.status}</span></td>`;
+      tbody.appendChild(tr);
+    });
+  }
+
+  function renderRecords(){
+    const tbody = document.querySelector('#records-table tbody');
+    tbody.innerHTML = '';
+    const filter = document.getElementById('filter-range').value;
+    let list = state.records.slice().reverse();
+    if(filter !== 'all') {
+      const days = Number(filter);
+      const cutoff = Date.now() - (days * 24 * 60 * 60 * 1000);
+      list = list.filter(r => new Date(r.rawTime).getTime() >= cutoff);
+    }
+    list.forEach(r => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td>${r.date}</td><td>${r.subject}</td><td><span class="pill ${r.status==='Present'?'present':'absent'}">${r.status}</span></td>`;
+      tbody.appendChild(tr);
+    });
+  }
+
+  // simple stats chart: horizontal bar showing last 30 statuses
+  function drawStats(){
+    const canvas = $('stats-canvas');
+    if(!canvas) return;
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+    const last = state.records.slice(-30);
+    const w = canvas.width;
+    const h = canvas.height;
+    const barW = Math.max(4, Math.floor(w / Math.max(1, last.length)));
+    last.forEach((r,i) => {
+      const x = i * barW;
+      const color = r.status === 'Present' ? '--green' : '--red';
+      ctx.fillStyle = r.status === 'Present' ? getComputedStyle(document.documentElement).getPropertyValue('--green') : getComputedStyle(document.documentElement).getPropertyValue('--red');
+      ctx.fillRect(x, h - 20, barW - 2, 20);
+    });
+    // draw percent text
+    ctx.fillStyle = '#111';
+    ctx.font = '600 14px Inter, system-ui';
+    ctx.fillText(Math.round(computePercent()) + '% present', 8, 16);
+  }
+
+  // navigation clicks
+  navItems.forEach(n => {
+    n.addEventListener('click', () => {
+      const t = n.dataset.screen;
+      // role guard: if trying to scan/generate and role mismatch, allow but show alert on action
+      show(t);
+    });
+  });
+
+  // role toggle buttons
+  document.getElementById('role-student').addEventListener('click', () => {
+    state.role = 'student';
+    document.getElementById('role-student').classList.add('btn-primary');
+    document.getElementById('role-student').classList.remove('btn-ghost');
+    document.getElementById('role-teacher').classList.add('btn-ghost');
+    document.getElementById('role-teacher').classList.remove('btn-primary');
+  });
+  document.getElementById('role-teacher').addEventListener('click', () => {
+    state.role = 'teacher';
+    document.getElementById('role-teacher').classList.add('btn-primary');
+    document.getElementById('role-teacher').classList.remove('btn-ghost');
+    document.getElementById('role-student').classList.add('btn-ghost');
+    document.getElementById('role-student').classList.remove('btn-primary');
+  });
+
+  // login
+  document.getElementById('login-btn').addEventListener('click', () => {
+    const email = $('email').value.trim();
+    state.name = email || 'User';
+    localStorage.setItem('sat_name', state.name);
+    show('screen-dashboard');
+  });
+  document.getElementById('guest-btn').addEventListener('click', () => {
+    state.name = 'Guest User';
+    show('screen-dashboard');
+  });
+
+  // dashboard quick actions
+  document.getElementById('btn-scan').addEventListener('click', () => {
+    if(state.role !== 'student') {
+      alert('Scan mode is for STUDENTS. Switch role to Student to scan QR codes.');
+      return;
+    }
+    show('screen-scan');
+  });
+  document.getElementById('btn-generate').addEventListener('click', () => {
+    if(state.role !== 'teacher') {
+      alert('Generate QR is for TEACHERS. Switch role to Teacher to create QR codes.');
+      return;
+    }
+    show('screen-generate');
+  });
+
+  // scanner simulate
+  document.getElementById('simulate-scan').addEventListener('click', () => {
+    // if QR required: allow marking present even without QR for demo; but if QR exists and expired -> block
+    if(state.currentQR && state.qrExpires && Date.now() > state.qrExpires) {
+      alert('The QR code has expired. Ask teacher to generate a new code.');
+      return;
+    }
+    const subject = state.currentQR ? state.currentQR.subject : 'General';
+    const dateStr = new Date().toLocaleDateString();
+    // prevent duplicate entry for same date+subject
+    if(state.records.find(r => r.date === dateStr && r.subject === subject)) {
+      alert('You already have an attendance record for this subject today.');
+      return;
+    }
+    const rec = { date: dateStr, subject, status: 'Present', rawTime: new Date().toISOString() };
+    state.records.push(rec);
+    localStorage.setItem('sat_records', JSON.stringify(state.records));
+    $('confirm-subject').textContent = subject;
+    show('screen-confirm');
+  });
+  document.getElementById('scan-back').addEventListener('click', () => show('screen-dashboard'));
+  document.getElementById('confirm-done').addEventListener('click', () => show('screen-dashboard'));
+  document.getElementById('confirm-records').addEventListener('click', () => show('screen-records'));
+
+  // generate QR (teacher)
+  const qrCanvas = $('qr-canvas');
+  const qrCtx = qrCanvas.getContext('2d');
+  function drawQR(payload){
+    // draw placeholder "QR" pattern for prototype
+    qrCtx.fillStyle = '#fff';
+    qrCtx.fillRect(0,0,qrCanvas.width,qrCanvas.height);
+    const size = 8;
+    for(let x=0;x<qrCanvas.width;x+=size){
+      for(let y=0;y<qrCanvas.height;y+=size){
+        if(Math.random() > 0.65) qrCtx.fillStyle = '#111'; else qrCtx.fillStyle = '#fff';
+        qrCtx.fillRect(x, y, size-1, size-1);
+      }
+    }
+    qrCtx.fillStyle = 'rgba(47,128,237,0.9)';
+    qrCtx.font = '600 16px Inter, sans-serif';
+    qrCtx.textAlign = 'center';
+    qrCtx.fillText(payload.slice(0,8), qrCanvas.width/2, qrCanvas.height - 18);
+  }
+
+  let qrTimerInterval = null;
+  function startQrTimer(ms){
+    clearInterval(qrTimerInterval);
+    const end = Date.now() + ms;
+    function tick(){
+      const remain = Math.max(0, end - Date.now());
+      const s = Math.floor((remain/1000)%60).toString().padStart(2,'0');
+      const m = Math.floor((remain/1000)/60).toString().padStart(2,'0');
+      $('qr-timer').textContent = `${m}:${s}`;
+      if(remain <= 0){
+        clearInterval(qrTimerInterval);
+        $('qr-timer').textContent = '00:00 (expired)';
+        state.currentQR = null;
+        state.qrExpires = null;
+      }
+    }
+    tick();
+    qrTimerInterval = setInterval(tick, 500);
+  }
+
+  document.getElementById('generate-btn').addEventListener('click', () => {
+    const subj = $('select-class').value;
+    const payload = `QR:${subj}:${Date.now()}`;
+    state.currentQR = { subject: subj, payload };
+    state.qrExpires = Date.now() + 5*60*1000; // 5 minutes
+    $('qr-area').classList.remove('hidden');
+    drawQR(payload);
+    startQrTimer(5*60*1000);
+  });
+
+  document.getElementById('generate-back').addEventListener('click', () => show('screen-dashboard'));
+
+  // download & share
+  document.getElementById('download-qr').addEventListener('click', () => {
+    const link = document.createElement('a');
+    link.href = qrCanvas.toDataURL('image/png');
+    link.download = (state.currentQR ? state.currentQR.subject : 'qr') + '.png';
+    link.click();
+  });
+  document.getElementById('share-qr').addEventListener('click', async () => {
+    if(navigator.share){
+      qrCanvas.toBlob(async (blob) => {
+        const file = new File([blob], 'qr.png', { type:'image/png' });
+        try {
+          await navigator.share({ files:[file], title:'Class QR', text:'Scan to mark attendance' });
+        } catch(e){
+          alert('Share cancelled or not supported.');
+        }
+      });
+    } else {
+      alert('Share API not available. Use Download to save the QR.');
+    }
+  });
+
+  // records filter
+  document.getElementById('filter-range').addEventListener('change', renderRecords);
+
+  // profile save & logout
+  document.getElementById('save-profile').addEventListener('click', () => {
+    const n = $('edit-name').value.trim();
+    const r = $('edit-role').value;
+    if(n) state.name = n;
+    state.role = r;
+    localStorage.setItem('sat_name', state.name);
+    show('screen-dashboard');
+  });
+  document.getElementById('logout').addEventListener('click', () => {
+    // clear state for demo
+    // retain records but reset name/role
+    state.name = 'Guest User';
+    state.role = 'student';
+    localStorage.setItem('sat_name', state.name);
+    show('screen-login');
+  });
+
+  // bottom nav quick clicks
+  document.querySelectorAll('.nav-item').forEach(item => {
+    item.addEventListener('click', () => {
+      const screen = item.dataset.screen;
+      show(screen);
+    });
+  });
+
+  // initial screen
+  // restore profile fields
+  $('edit-name').value = state.name;
+  $('edit-role').value = state.role;
+  $('email').value = state.name === 'Guest User' ? '' : state.name;
+  show('screen-login');
+
+  // expose for debugging (optional)
+  window.__sat_state = state;
+})();
+</script>
+</body>
+</html>
