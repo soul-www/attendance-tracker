@@ -132,19 +132,22 @@
   </section>
 
   <!-- SCAN -->
-  <section id="screen-scan" class="card hidden">
-    <div style="font-weight:800">QR Scanner</div>
-    <div class="muted">Align the teacher's QR inside the frame and press Scan</div>
+  <!-- SCAN -->
+<section id="screen-scan" class="card hidden">
+  <div style="font-weight:800">QR Scanner</div>
+  <div class="muted">Align the teacher's QR inside the frame and press Scan</div>
 
-    <div class="scanner mt12">
-      <div class="qr-placeholder">Camera view (simulated)</div>
-      <div class="notice">Align code till the simulated scan button activates</div>
-      <div style="display:flex;gap:10px;margin-top:10px">
-        <button id="simulate-scan" class="btn btn-primary btn-small">Simulate Scan</button>
-        <button id="scan-back" class="btn btn-ghost btn-small">Back</button>
-      </div>
+  <div class="scanner mt12">
+    <video id="scanner" autoplay playsinline style="width:220px;height:220px;border-radius:8px;background:#000"></video>
+    <canvas id="scanner-canvas" class="hidden"></canvas>
+    <div class="notice">Align QR code till the scan activates</div>
+    <div style="display:flex;gap:10px;margin-top:10px">
+      <button id="simulate-scan" class="btn btn-primary btn-small">Scan</button>
+      <button id="scan-back" class="btn btn-ghost btn-small">Back</button>
     </div>
-  </section>
+  </div>
+</section>
+
 
   <!-- CONFIRMATION -->
   <section id="screen-confirm" class="card hidden">
@@ -163,26 +166,22 @@
   <section id="screen-generate" class="card hidden">
     <div style="font-weight:800">Generate QR Code</div>
     <div class="muted">Select class and create a time-limited QR</div>
-    <select id="select-class" class="mt12">
-  <option>Application DEVT & Emerging Technologies Lecture</option>
-  <option>Application DEVT & Emerging Technologies Lab</option>
-
-  <option>Design Thinking UI/UX Lecture</option>
-  <option>Design Thinking UI/UX Lab</option>
-
-  <option>Enterprise Network Security and Automation Lecture</option>
-  <option>Enterprise Network Security and Automation Lab</option>
-
-  <option>Information Assurance and Security Lecture</option>
-  <option>Information Assurance and Security Lab</option>
-
-  <option>Networking Lecture</option>
-  <option>Networking Lab</option>
-
-  <option>Project Management</option>
-  <option>Technical English</option>
-  <option>The Contemporary World</option>
-</select>
+    <select id="student-subject" class="mt12"> 
+      <option selected disabled>Select Subject</option> 
+      <option>Application DEVT & Emerging Technologies Lecture</option> 
+      <option>Application DEVT & Emerging Technologies Lab</option> 
+      <option>Design Thinking UI/UX Lecture</option> 
+      <option>Design Thinking UI/UX Lab</option> 
+      <option>Enterprise Network Security and Automation Lecture</option> 
+      <option>Enterprise Network Security and Automation Lab</option> 
+      <option>Information Assurance and Security Lecture</option> 
+      <option>Information Assurance and Security Lab</option> 
+      <option>Networking Lecture</option> 
+      <option>Networking Lab</option> 
+      <option>Project Management</option> 
+      <option>Technical English</option> 
+      <option>The Contemporary World</option>
+    </select>
 
 
     <div style="display:flex;gap:10px;margin-top:12px">
@@ -262,8 +261,8 @@
   <div class="nav-item" data-screen="screen-profile">Profile</div>
 </nav>
 
+<script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
 <script>
-/* Prototype logic: local state, screens, interactions */
 (function(){
   const screens = Array.from(document.querySelectorAll('section'));
   const navItems = document.querySelectorAll('.nav-item');
@@ -275,8 +274,8 @@
     qrExpires: null
   };
 
-  // helpers
   const $ = id => document.getElementById(id);
+
   function show(screenId){
     screens.forEach(s => s.classList.toggle('hidden', s.id !== screenId));
     navItems.forEach(n => n.classList.toggle('active', n.dataset.screen === screenId));
@@ -284,21 +283,16 @@
   }
 
   function refreshUI(){
-    // header / profile
     $('display-name').textContent = state.name;
     $('profile-name').textContent = state.name;
     $('profile-role').textContent = state.role[0].toUpperCase() + state.role.slice(1);
     $('avatar-initials').textContent = state.name.split(' ').map(s=>s[0]||'').slice(0,2).join('').toUpperCase();
 
-    // dashboard stats
     const today = new Date().toLocaleDateString();
     $('today-date').textContent = today;
     const todayRec = state.records.find(r => r.date === today);
     $('today-status').textContent = todayRec ? todayRec.status : 'No record yet';
-
-    const percent = computePercent();
-    $('att-percent').textContent = Math.round(percent) + '%';
-
+    $('att-percent').textContent = Math.round(computePercent()) + '%';
     renderRecent();
     renderRecords();
     drawStats();
@@ -306,14 +300,14 @@
 
   function computePercent(){
     if(!state.records.length) return 0;
-    const present = state.records.filter(r => r.status === 'Present').length;
+    const present = state.records.filter(r => r.status==='Present').length;
     return (present / state.records.length) * 100;
   }
 
   function renderRecent(){
     const tbody = document.querySelector('#recent-table tbody');
     tbody.innerHTML = '';
-    state.records.slice(-4).reverse().forEach(r => {
+    state.records.slice(-4).reverse().forEach(r=>{
       const tr = document.createElement('tr');
       tr.innerHTML = `<td>${r.date}</td><td>${r.subject}</td><td><span class="pill ${r.status==='Present'?'present':'absent'}">${r.status}</span></td>`;
       tbody.appendChild(tr);
@@ -323,233 +317,207 @@
   function renderRecords(){
     const tbody = document.querySelector('#records-table tbody');
     tbody.innerHTML = '';
-    const filter = document.getElementById('filter-range').value;
+    const filter = $('filter-range').value;
     let list = state.records.slice().reverse();
-    if(filter !== 'all') {
+    if(filter !== 'all'){
       const days = Number(filter);
-      const cutoff = Date.now() - (days * 24 * 60 * 60 * 1000);
+      const cutoff = Date.now() - (days*24*60*60*1000);
       list = list.filter(r => new Date(r.rawTime).getTime() >= cutoff);
     }
-    list.forEach(r => {
+    list.forEach(r=>{
       const tr = document.createElement('tr');
       tr.innerHTML = `<td>${r.date}</td><td>${r.subject}</td><td><span class="pill ${r.status==='Present'?'present':'absent'}">${r.status}</span></td>`;
       tbody.appendChild(tr);
     });
   }
 
-  // simple stats chart: horizontal bar showing last 30 statuses
   function drawStats(){
     const canvas = $('stats-canvas');
     if(!canvas) return;
     const ctx = canvas.getContext('2d');
     ctx.clearRect(0,0,canvas.width,canvas.height);
     const last = state.records.slice(-30);
-    const w = canvas.width;
-    const h = canvas.height;
-    const barW = Math.max(4, Math.floor(w / Math.max(1, last.length)));
-    last.forEach((r,i) => {
-      const x = i * barW;
-      const color = r.status === 'Present' ? '--green' : '--red';
-      ctx.fillStyle = r.status === 'Present' ? getComputedStyle(document.documentElement).getPropertyValue('--green') : getComputedStyle(document.documentElement).getPropertyValue('--red');
-      ctx.fillRect(x, h - 20, barW - 2, 20);
+    const w = canvas.width, h = canvas.height;
+    const barW = Math.max(4, Math.floor(w/Math.max(1,last.length)));
+    last.forEach((r,i)=>{
+      const x = i*barW;
+      ctx.fillStyle = r.status==='Present' ? getComputedStyle(document.documentElement).getPropertyValue('--green') : getComputedStyle(document.documentElement).getPropertyValue('--red');
+      ctx.fillRect(x,h-20,barW-2,20);
     });
-    // draw percent text
     ctx.fillStyle = '#111';
     ctx.font = '600 14px Inter, system-ui';
-    ctx.fillText(Math.round(computePercent()) + '% present', 8, 16);
+    ctx.fillText(Math.round(computePercent())+'% present',8,16);
   }
 
-  // navigation clicks
-  navItems.forEach(n => {
-    n.addEventListener('click', () => {
-      const t = n.dataset.screen;
-      // role guard: if trying to scan/generate and role mismatch, allow but show alert on action
-      show(t);
-    });
+  navItems.forEach(n=>n.addEventListener('click',()=>show(n.dataset.screen)));
+
+  document.getElementById('role-student').addEventListener('click',()=>{
+    state.role='student';
+    $('role-student').classList.add('btn-primary'); $('role-student').classList.remove('btn-ghost');
+    $('role-teacher').classList.add('btn-ghost'); $('role-teacher').classList.remove('btn-primary');
+  });
+  document.getElementById('role-teacher').addEventListener('click',()=>{
+    state.role='teacher';
+    $('role-teacher').classList.add('btn-primary'); $('role-teacher').classList.remove('btn-ghost');
+    $('role-student').classList.add('btn-ghost'); $('role-student').classList.remove('btn-primary');
   });
 
-  // role toggle buttons
-  document.getElementById('role-student').addEventListener('click', () => {
-    state.role = 'student';
-    document.getElementById('role-student').classList.add('btn-primary');
-    document.getElementById('role-student').classList.remove('btn-ghost');
-    document.getElementById('role-teacher').classList.add('btn-ghost');
-    document.getElementById('role-teacher').classList.remove('btn-primary');
-  });
-  document.getElementById('role-teacher').addEventListener('click', () => {
-    state.role = 'teacher';
-    document.getElementById('role-teacher').classList.add('btn-primary');
-    document.getElementById('role-teacher').classList.remove('btn-ghost');
-    document.getElementById('role-student').classList.add('btn-ghost');
-    document.getElementById('role-student').classList.remove('btn-primary');
-  });
-
-  // login
-  document.getElementById('login-btn').addEventListener('click', () => {
+  $('login-btn').addEventListener('click',()=>{
     const email = $('email').value.trim();
-    state.name = email || 'User';
+    state.name = email||'User';
     localStorage.setItem('sat_name', state.name);
     show('screen-dashboard');
   });
-  document.getElementById('guest-btn').addEventListener('click', () => {
-    state.name = 'Guest User';
+  $('guest-btn').addEventListener('click',()=>{
+    state.name='Guest User';
     show('screen-dashboard');
   });
 
-  // dashboard quick actions
-  document.getElementById('btn-scan').addEventListener('click', () => {
-    if(state.role !== 'student') {
-      alert('Scan mode is for STUDENTS. Switch role to Student to scan QR codes.');
-      return;
-    }
-    show('screen-scan');
-  });
-  document.getElementById('btn-generate').addEventListener('click', () => {
-    if(state.role !== 'teacher') {
-      alert('Generate QR is for TEACHERS. Switch role to Teacher to create QR codes.');
-      return;
-    }
+  $('btn-generate').addEventListener('click',()=>{
+    if(state.role!=='teacher'){ alert('Switch to Teacher role'); return; }
     show('screen-generate');
   });
 
-  // scanner simulate
-  document.getElementById('simulate-scan').addEventListener('click', () => {
-    // if QR required: allow marking present even without QR for demo; but if QR exists and expired -> block
-    if(state.currentQR && state.qrExpires && Date.now() > state.qrExpires) {
-      alert('The QR code has expired. Ask teacher to generate a new code.');
-      return;
+  // ------------------ QR SCANNER ------------------
+  const video = $('scanner');
+  const canvas = $('scanner-canvas');
+  const ctx = canvas.getContext('2d');
+  let videoStream = null;
+
+  async function startCamera(){
+    try{
+      videoStream = await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'}});
+      video.srcObject = videoStream;
+      video.setAttribute('playsinline',true);
+      video.play();
+      requestAnimationFrame(scanLoop);
+    }catch(err){
+      alert('Camera access denied or unavailable.');
+      console.error(err);
     }
+  }
+
+  function stopCamera(){
+    if(videoStream){ videoStream.getTracks().forEach(t=>t.stop()); videoStream=null; }
+  }
+
+  function scanLoop(){
+    if(video.readyState===video.HAVE_ENOUGH_DATA){
+      canvas.width=video.videoWidth;
+      canvas.height=video.videoHeight;
+      ctx.drawImage(video,0,0,canvas.width,canvas.height);
+      const imgData=ctx.getImageData(0,0,canvas.width,canvas.height);
+      const code=jsQR(imgData.data,imgData.width,imgData.height);
+      if(code){ handleQR(code.data); stopCamera(); return; }
+    }
+    requestAnimationFrame(scanLoop);
+  }
+
+  function handleQR(data){
     const subject = state.currentQR ? state.currentQR.subject : 'General';
     const dateStr = new Date().toLocaleDateString();
-    // prevent duplicate entry for same date+subject
-    if(state.records.find(r => r.date === dateStr && r.subject === subject)) {
-      alert('You already have an attendance record for this subject today.');
+    if(state.records.find(r=>r.date===dateStr && r.subject===subject)){
+      alert('Attendance already recorded for today.');
+      show('screen-dashboard');
       return;
     }
-    const rec = { date: dateStr, subject, status: 'Present', rawTime: new Date().toISOString() };
+    const rec = { date: dateStr, subject, status:'Present', rawTime:new Date().toISOString() };
     state.records.push(rec);
-    localStorage.setItem('sat_records', JSON.stringify(state.records));
-    $('confirm-subject').textContent = subject;
+    localStorage.setItem('sat_records',JSON.stringify(state.records));
+    $('confirm-subject').textContent=subject;
     show('screen-confirm');
-  });
-  document.getElementById('scan-back').addEventListener('click', () => show('screen-dashboard'));
-  document.getElementById('confirm-done').addEventListener('click', () => show('screen-dashboard'));
-  document.getElementById('confirm-records').addEventListener('click', () => show('screen-records'));
+  }
 
-  // generate QR (teacher)
+  $('btn-scan').addEventListener('click',()=>{
+    if(state.role!=='student'){ alert('Switch to Student role'); return; }
+    show('screen-scan');
+    startCamera();
+  });
+  $('scan-back').addEventListener('click',()=>{ stopCamera(); show('screen-dashboard'); });
+  $('simulate-scan').addEventListener('click',()=>handleQR('SIMULATED_QR'));
+  $('confirm-done').addEventListener('click',()=>show('screen-dashboard'));
+  $('confirm-records').addEventListener('click',()=>show('screen-records'));
+  // ------------------ END SCANNER ------------------
+
+  // ------------------ QR GENERATOR ------------------
   const qrCanvas = $('qr-canvas');
   const qrCtx = qrCanvas.getContext('2d');
+  let qrTimerInterval = null;
+
   function drawQR(payload){
-    // draw placeholder "QR" pattern for prototype
-    qrCtx.fillStyle = '#fff';
-    qrCtx.fillRect(0,0,qrCanvas.width,qrCanvas.height);
-    const size = 8;
+    qrCtx.fillStyle='#fff'; qrCtx.fillRect(0,0,qrCanvas.width,qrCanvas.height);
+    const size=8;
     for(let x=0;x<qrCanvas.width;x+=size){
       for(let y=0;y<qrCanvas.height;y+=size){
-        if(Math.random() > 0.65) qrCtx.fillStyle = '#111'; else qrCtx.fillStyle = '#fff';
-        qrCtx.fillRect(x, y, size-1, size-1);
+        qrCtx.fillStyle=Math.random()>0.65?'#111':'#fff';
+        qrCtx.fillRect(x,y,size-1,size-1);
       }
     }
-    qrCtx.fillStyle = 'rgba(47,128,237,0.9)';
-    qrCtx.font = '600 16px Inter, sans-serif';
-    qrCtx.textAlign = 'center';
-    qrCtx.fillText(payload.slice(0,8), qrCanvas.width/2, qrCanvas.height - 18);
+    qrCtx.fillStyle='rgba(47,128,237,0.9)';
+    qrCtx.font='600 16px Inter, sans-serif';
+    qrCtx.textAlign='center';
+    qrCtx.fillText(payload.slice(0,8),qrCanvas.width/2,qrCanvas.height-18);
   }
 
-  let qrTimerInterval = null;
   function startQrTimer(ms){
     clearInterval(qrTimerInterval);
-    const end = Date.now() + ms;
+    const end = Date.now()+ms;
     function tick(){
-      const remain = Math.max(0, end - Date.now());
-      const s = Math.floor((remain/1000)%60).toString().padStart(2,'0');
-      const m = Math.floor((remain/1000)/60).toString().padStart(2,'0');
-      $('qr-timer').textContent = `${m}:${s}`;
-      if(remain <= 0){
-        clearInterval(qrTimerInterval);
-        $('qr-timer').textContent = '00:00 (expired)';
-        state.currentQR = null;
-        state.qrExpires = null;
-      }
+      const remain=Math.max(0,end-Date.now());
+      const s=Math.floor((remain/1000)%60).toString().padStart(2,'0');
+      const m=Math.floor((remain/1000)/60).toString().padStart(2,'0');
+      $('qr-timer').textContent=`${m}:${s}`;
+      if(remain<=0){ clearInterval(qrTimerInterval); $('qr-timer').textContent='00:00 (expired)'; state.currentQR=null; state.qrExpires=null; }
     }
     tick();
-    qrTimerInterval = setInterval(tick, 500);
+    qrTimerInterval=setInterval(tick,500);
   }
 
-  document.getElementById('generate-btn').addEventListener('click', () => {
-    const subj = $('select-class').value;
-    const payload = `QR:${subj}:${Date.now()}`;
-    state.currentQR = { subject: subj, payload };
-    state.qrExpires = Date.now() + 5*60*1000; // 5 minutes
+  $('generate-btn').addEventListener('click',()=>{
+    const subj=$('select-class').value;
+    const payload=`QR:${subj}:${Date.now()}`;
+    state.currentQR={subject:subj,payload};
+    state.qrExpires=Date.now()+5*60*1000;
     $('qr-area').classList.remove('hidden');
     drawQR(payload);
     startQrTimer(5*60*1000);
   });
 
-  document.getElementById('generate-back').addEventListener('click', () => show('screen-dashboard'));
-
-  // download & share
-  document.getElementById('download-qr').addEventListener('click', () => {
-    const link = document.createElement('a');
-    link.href = qrCanvas.toDataURL('image/png');
-    link.download = (state.currentQR ? state.currentQR.subject : 'qr') + '.png';
+  $('generate-back').addEventListener('click',()=>show('screen-dashboard'));
+  $('download-qr').addEventListener('click',()=>{
+    const link=document.createElement('a');
+    link.href=qrCanvas.toDataURL('image/png');
+    link.download=(state.currentQR?state.currentQR.subject:'qr')+'.png';
     link.click();
   });
-  document.getElementById('share-qr').addEventListener('click', async () => {
+  $('share-qr').addEventListener('click',async()=>{
     if(navigator.share){
-      qrCanvas.toBlob(async (blob) => {
-        const file = new File([blob], 'qr.png', { type:'image/png' });
-        try {
-          await navigator.share({ files:[file], title:'Class QR', text:'Scan to mark attendance' });
-        } catch(e){
-          alert('Share cancelled or not supported.');
-        }
+      qrCanvas.toBlob(async blob=>{
+        const file=new File([blob],'qr.png',{type:'image/png'});
+        try{ await navigator.share({files:[file],title:'Class QR',text:'Scan to mark attendance'}); } catch(e){ alert('Share cancelled or unsupported'); }
       });
-    } else {
-      alert('Share API not available. Use Download to save the QR.');
-    }
+    } else alert('Share API unavailable. Use Download.');
   });
+  // ------------------ END GENERATOR ------------------
 
-  // records filter
-  document.getElementById('filter-range').addEventListener('change', renderRecords);
-
-  // profile save & logout
-  document.getElementById('save-profile').addEventListener('click', () => {
-    const n = $('edit-name').value.trim();
-    const r = $('edit-role').value;
-    if(n) state.name = n;
-    state.role = r;
-    localStorage.setItem('sat_name', state.name);
+  $('filter-range').addEventListener('change',renderRecords);
+  $('save-profile').addEventListener('click',()=>{
+    const n=$('edit-name').value.trim(); const r=$('edit-role').value;
+    if(n) state.name=n; state.role=r;
+    localStorage.setItem('sat_name',state.name);
     show('screen-dashboard');
   });
-  document.getElementById('logout').addEventListener('click', () => {
-    // clear state for demo
-    // retain records but reset name/role
-    state.name = 'Guest User';
-    state.role = 'student';
-    localStorage.setItem('sat_name', state.name);
+  $('logout').addEventListener('click',()=>{
+    state.name='Guest User'; state.role='student';
+    localStorage.setItem('sat_name',state.name);
     show('screen-login');
   });
 
-  // bottom nav quick clicks
-  document.querySelectorAll('.nav-item').forEach(item => {
-    item.addEventListener('click', () => {
-      const screen = item.dataset.screen;
-      show(screen);
-    });
-  });
-
-  // initial screen
-  // restore profile fields
-  $('edit-name').value = state.name;
-  $('edit-role').value = state.role;
-  $('email').value = state.name === 'Guest User' ? '' : state.name;
+  $('edit-name').value=state.name; $('edit-role').value=state.role;
+  $('email').value=state.name==='Guest User'?'':state.name;
   show('screen-login');
-
-  // expose for debugging (optional)
-  window.__sat_state = state;
+  window.__sat_state=state;
 })();
 </script>
 </body>
 </html>
-
